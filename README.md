@@ -9,7 +9,7 @@ CyntIA é o nome da revolução no que tange um assistente virtual. Não somente
 
 ## Tech Stack
 
-**Client:** Espressif IoT Development Framework
+**Client:** Arduino Framework
 
 **Server:** Firebase
 
