@@ -1,105 +1,128 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include <string.h>
-#include <locale.h>
 
-const String ssid = "";
-const String password = "";
-const String Gemini_Token = "";
-const String Gemini_Max_Tokens = "200";
+const char* ssid = "WT-MIGUEL";
+const char* password = "GomesCampos9862709402";
+const char* APIURL = "https://api.elevenlabs.io/v1/text-to-speech/33B4UnXyTNbgLmdEDh5P";
+const char* apiKey = "sk_d0ff6eca4b0dc87d502c6f6ca36a897f73f5a6df47cef108";
+const char* backendURL = "http://192.168.1.3:3000/upload"; // URL do backend
+
 String question = "";
 
 void setup() {
   Serial.begin(115200);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-
-  while (!Serial);
-
-  setlocale(LC_ALL, "Portuguese");
-
-  // wait for WiFi connection
   WiFi.begin(ssid, password);
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.print("Conectando ao WiFi...");
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.print(".");
   }
-  Serial.println("connected");
-  Serial.print("IP address: ");
+  Serial.println("\nConectado!");
+  Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 }
 
-void loop() 
-{
-  setlocale(LC_ALL, "Portuguese");
-  Serial.println("");
-  Serial.println("Ask your Question: ");
+void enviarAudioParaBackend(WiFiClient* stream) {
+  WiFiClient client;
+  const char* host = "192.168.1.3";  // IP do servidor backend
+  const int port = 3000;
 
-  while (!Serial.available());
-  while (Serial.available()) {
-    question = Serial.readString();
-    delay(1);
+  if (!client.connect(host, port)) {
+    Serial.println("Falha ao conectar ao backend");
+    return;
   }
 
-  question = "\"" + question + "\"";
-  Serial.println("");
+  String boundary = "----ESP32Boundary";
+  String bodyStart = "--" + boundary + "\r\n"
+                     "Content-Disposition: form-data; name=\"file\"; filename=\"audio.mp3\"\r\n"
+                     "Content-Type: audio/mpeg\r\n\r\n";
+  String bodyEnd = "\r\n--" + boundary + "--\r\n";
 
-  Serial.print("Asking Your Question: ");
+  int contentLength = bodyStart.length() + stream->available() + bodyEnd.length();
+
+  // Envia o cabeçalho HTTP
+  client.printf(
+      "POST /upload HTTP/1.1\r\n"
+      "Host: %s\r\n"
+      "Content-Type: multipart/form-data; boundary=%s\r\n"
+      "Content-Length: %d\r\n"
+      "Connection: close\r\n\r\n",
+      host, boundary.c_str(), contentLength);
+
+  client.setTimeout(20000);
+  client.print(bodyStart);  // Envia o início do corpo
+
+  // Envia o áudio em chunks
+  uint8_t buffer[512];
+  while (stream->available()) {
+    size_t len = stream->read(buffer, sizeof(buffer));
+    client.write(buffer, len);
+    delay(10);  // Pausa para evitar sobrecarga
+  }
+
+  client.print(bodyEnd);  // Envia o final do corpo
+  client.setTimeout(20000);
+  // Lê a resposta do servidor
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r") break;  // Fim do cabeçalho HTTP
+  }
+  client.setTimeout(20000);
+  String response = client.readString();
+  Serial.println("Resposta do servidor:");
+  Serial.println(response);
+
+  client.stop();  // Fecha a conexão corretamente
+}
+
+
+
+
+
+void loop() {
+  Serial.println("\nDigite algo para ser escutado:");
+
+  while (!Serial.available());
+  question = Serial.readString();
+  question.trim();
+  Serial.print("Pergunta enviada: ");
   Serial.println(question);
 
+  // Monta o JSON corretamente
+  String payload = "{";
+  payload += "\"text\":\"" + question + "\",";
+  payload += "\"model_id\":\"eleven_multilingual_v2\",";
+  payload += "\"voice_settings\":{\"stability\":0.5,\"similarity_boost\":0.5}";
+  payload += "}";
+
+  // Faz a requisição HTTPS para Eleven Labs
   HTTPClient https;
-
-  //Serial.print("[HTTPS] begin...\n");
-  if (https.begin("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + (String)Gemini_Token)) {  // HTTPS
-
+  if (https.begin(APIURL)) {
+    https.addHeader("Accept", "audio/mpeg");
     https.addHeader("Content-Type", "application/json");
-    String payload = String("{\"contents\": [{\"parts\":[{\"text\":" + question + "}]}],\"generationConfig\": {\"maxOutputTokens\": " + (String)Gemini_Max_Tokens + "}}");
-
-    //Serial.print("[HTTPS] GET...\n");
-
-    // start connection and send HTTP header
+    https.addHeader("xi-api-key", apiKey);
+    https.setTimeout(30000);
     int httpCode = https.POST(payload);
+    if (httpCode == HTTP_CODE_OK) {
+      Serial.println("Recebendo áudio...");
 
-    // httpCode will be negative on error
-    // file found at server
+      // Lê o stream de áudio
+      WiFiClient* stream = https.getStreamPtr();
 
-    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-      String payload = https.getString();
-      //Serial.println(payload);
 
-      DynamicJsonDocument doc(1024);
-
-      deserializeJson(doc, payload);
-      String answer = doc["candidates"][0]["content"]["parts"][0]["text"];
-
-      // For Filtering our Special Characters, WhiteSpaces and NewLine Characters
-      answer.trim();
-      String filteredAnswer = "";
-      for (size_t i = 0; i < answer.length(); i++) {
-        char c = answer[i];
-        if (isalnum(c) || isspace(c)) {
-          filteredAnswer += c;
-        } else {
-          filteredAnswer += ' ';
-        }
-      }
-      answer = filteredAnswer;
-
-      Serial.println("");
-      Serial.println("Here is your Answer: ");
-      Serial.println("");
-      Serial.println(answer);
+      Serial.println("antes de passar");
+      // Envia o áudio para o backend
+      enviarAudioParaBackend(stream);
+      Serial.println("passou");
     } else {
-      Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      Serial.printf("Erro na requisição: %s\n", https.errorToString(httpCode).c_str());
     }
     https.end();
   } else {
-    Serial.printf("[HTTPS] Unable to connect\n");
+    Serial.println("Falha na conexão HTTPS.");
   }
-  question = "";
+
+  question = "";  // Reseta a pergunta
 }
