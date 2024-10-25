@@ -1,0 +1,97 @@
+void upload_file()
+{
+    // Open WAV file from SD card
+    File file = SD.open("/" + fileName, FILE_READ); // Removed unnecessary String() conversion
+    if (!file)
+    {
+        Serial.println("Failed to open file for reading");
+        return;
+    }
+
+    file.seek(0); // Reset file pointer to the beginning
+
+    // Clear formData string
+    formData = "";
+
+    // Get file size
+    int fileSize = file.size();
+    int numIterations = fileSize / 4096;
+    if (fileSize % 4096 != 0)
+    {
+        numIterations++; // Add one more iteration for the remaining bytes
+    }
+
+    Serial.print("File size in bytes: ");
+    Serial.println(fileSize);
+    Serial.print("Number of iterations: ");
+    Serial.println(numIterations);
+
+    // Connect to server
+    if (!client.connect("server", port))
+    {
+        Serial.println("Connection failed!");
+        file.close();
+        return;
+    }
+    Serial.println("Connected to server");
+    Serial.println(fileName);
+    Serial.println(meetingTitle);
+
+    formData += "--" + boundary + "\r\n";
+    formData += "Content-Disposition: form-data; name=\"user_id\"\r\n\r\n";
+    formData += userId + "\r\n";
+
+    formData += "--" + boundary + "\r\n";
+    formData += "Content-Disposition: form-data; name=\"meeting_title\"\r\n\r\n";
+    formData += meetingTitle + "\r\n";
+
+    formData += "--" + boundary + "\r\n";
+    Serial.println(fileName);
+    formData += "Content-Disposition: form-data; name=\"meeting_audio\"; filename=\"" + fileName + "\"\r\n";
+    formData += "Content-Type: audio/wav\r\n\r\n";
+
+    String footer = "\r\n--" + boundary + "--\r\n";
+
+    int contentLength = formData.length() + file.size() + footer.length();
+
+    // Send POST request with Content-Length header
+    client.print("POST /save_audio HTTP/1.1\r\n");
+    client.print("Host: server:port\r\n");
+    client.print("Cache-Control: no-cache\r\n");
+    client.print("Content-Type: multipart/form-data; boundary=" + boundary + "\r\n");
+    client.print("Content-Length: " + String(contentLength) + "\r\n\r\n");
+
+    // Send form data
+    client.print(formData);
+
+    // Send file content
+    const int bufferSize = 4096;
+    byte buffer[bufferSize];
+    int bytesRead = 0;
+
+    int z = 0;
+    Serial.println(fileName);
+    while (file.available())
+    {
+        bytesRead = file.readBytes((char *)buffer, bufferSize);
+        client.write(buffer, bytesRead);
+        z++;
+        Serial.print(z);
+        Serial.print(" ");
+    }
+    file.close();
+    Serial.println();
+    Serial.println(z);
+    // Send footer
+    client.print(footer);
+
+    String line = client.readStringUntil('{');
+    Serial.println(line);
+
+    String serverRes = client.readStringUntil('}');
+    Serial.println("Server response: " + serverRes);
+
+    client.stop();
+
+    delay(10000); // Wait for 1 minute before sending
+}

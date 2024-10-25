@@ -1,5 +1,132 @@
 
+#include <Arduino.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
 
+const char* ssid = "lanna-wifi";
+const char* password = "lanna-wifi";
+const char* APIURL = "https://api.elevenlabs.io/v1/text-to-speech/33B4UnXyTNbgLmdEDh5P";
+const char* apiKey = "sk_d0ff6eca4b0dc87d502c6f6ca36a897f73f5a6df47cef108";
+const char* backendURL = "http://192.168.14.106:3000/upload"; // URL do backend
+
+String question = "";
+
+void setup() {
+  Serial.begin(115200);
+
+  WiFi.begin(ssid, password);
+  Serial.print("Conectando ao WiFi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println("\nConectado!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void enviarAudioParaBackend(WiFiClient* stream) {
+  WiFiClient client;
+  const char* host = "192.168.14.106";  // IP do servidor backend
+  const int port = 3000;
+
+  if (!client.connect(host, port)) {
+    Serial.println("Falha ao conectar ao backend");
+    return;
+  }
+
+  String boundary = "----ESP32Boundary";
+  String bodyStart = "--" + boundary + "\r\n"
+                     "Content-Disposition: form-data; name=\"file\"; filename=\"audio.mp3\"\r\n"
+                     "Content-Type: audio/mpeg\r\n\r\n";
+  String bodyEnd = "\r\n--" + boundary + "--\r\n";
+
+  int contentLength = bodyStart.length() + stream->available() + bodyEnd.length();
+
+  // Envia o cabeçalho HTTP
+  client.printf(
+      "POST /upload HTTP/1.1\r\n"
+      "Host: %s\r\n"
+      "Content-Type: multipart/form-data; boundary=%s\r\n"
+      "Content-Length: %d\r\n"
+      "Connection: close\r\n\r\n",
+      host, boundary.c_str(), contentLength);
+
+  client.setTimeout(20000);
+  client.print(bodyStart);  // Envia o início do corpo
+
+  // Envia o áudio em chunks
+  uint8_t buffer[512];
+  while (stream->available()) {
+    size_t len = stream->read(buffer, sizeof(buffer));
+    client.write(buffer, len);
+    delay(10);  // Pausa para evitar sobrecarga
+  }
+
+  client.print(bodyEnd);  // Envia o final do corpo
+  client.setTimeout(20000);
+  // Lê a resposta do servidor
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r") break;  // Fim do cabeçalho HTTP
+  }
+  client.setTimeout(20000);
+  String response = client.readString();
+  Serial.println("Resposta do servidor:");
+  Serial.println(response);
+
+  client.stop();  // Fecha a conexão corretamente
+}
+
+
+
+
+
+void loop() {
+  Serial.println("\nDigite algo para ser escutado:");
+
+  while (!Serial.available());
+  question = Serial.readString();
+  question.trim();
+  Serial.print("Pergunta enviada: ");
+  Serial.println(question);
+
+  // Monta o JSON corretamente
+  String payload = "{";
+  payload += "\"text\":\"" + question + "\",";
+  payload += "\"model_id\":\"eleven_multilingual_v2\",";
+  payload += "\"voice_settings\":{\"stability\":0.5,\"similarity_boost\":0.5}";
+  payload += "}";
+
+  // Faz a requisição HTTPS para Eleven Labs
+  HTTPClient https;
+  if (https.begin(APIURL)) {
+    https.addHeader("Accept", "*/*");
+    https.addHeader("Content-Type", "application/json");
+    https.addHeader("xi-api-key", apiKey);
+    https.setTimeout(30000);
+    int httpCode = https.POST(payload);
+    if (httpCode == HTTP_CODE_OK) {
+      Serial.println("Recebendo áudio...");
+
+      // Lê o stream de áudio
+      WiFiClient* stream = https.getStreamPtr();
+
+
+      Serial.println("antes de passar");
+      // Envia o áudio para o backend
+      enviarAudioParaBackend(stream);
+      Serial.println("passou");
+    } else {
+      Serial.printf("Erro na requisição: %s\n", https.errorToString(httpCode).c_str());
+    }
+    https.end();
+  } else {
+    Serial.println("Falha na conexão HTTPS.");
+  }
+
+  question = "";  // Reseta a pergunta
+}
 
 //para testes//////////////////////////////////////////
 
@@ -72,4 +199,152 @@ void setup() {
 
 void loop() {
   // Não precisa de loop nesse teste
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// Configurações Wi-Fi
+const char* ssid = "WT-MIGUEL";
+const char* password = "GomesCampos9862709402";
+
+// URLs
+String apiElevenLabs = "https://api.elevenlabs.io/v1/text-to-speech/33B4UnXyTNbgLmdEDh5P";
+String nodeServerURL = "http://192.168.1.3:3000/upload"; // IP do seu servidor local
+
+// Headers da API do ElevenLabs
+const char* apiKey = "sk_d0ff6eca4b0dc87d502c6f6ca36a897f73f5a6df47cef108";
+
+// Variáveis globais para guardar o áudio e seu tamanho
+uint8_t* mp3Buffer = nullptr;
+int contentLength = 0;
+String boundary = "----ESP32Boundary123456"; // Delimitador do multipart
+
+// Declaração das funções
+bool baixarAudioMP3(String texto);
+void enviarParaServidorNode();
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Conectado ao Wi-Fi!");
+
+  Serial.println("\nDigite algo para ser escutado:");
+
+  while (!Serial.available());
+  String texto = Serial.readString();
+  texto.trim();
+  Serial.print("Texto enviado: ");
+  Serial.println(texto);
+  if (baixarAudioMP3(texto)) {
+    enviarParaServidorNode();
+  } else {
+    Serial.println("Falha ao baixar o áudio.");
+  }
+}
+
+bool baixarAudioMP3(String texto) {
+  HTTPClient http;
+  http.begin(apiElevenLabs);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("xi-api-key", apiKey);
+
+  String jsonBody = "{\"text\":\"" + texto + "\"}";
+  int httpResponseCode = http.POST(jsonBody);
+
+  if (httpResponseCode == 200) {
+    contentLength = http.getSize();
+    Serial.printf("Tamanho do áudio: %d bytes\n", contentLength);
+
+    if (contentLength > 0) {
+      mp3Buffer = (uint8_t*)malloc(contentLength);
+      if (mp3Buffer == nullptr) {
+        Serial.println("Erro ao alocar memória!");
+        http.end();
+        return false;
+      }
+
+      WiFiClient* stream = http.getStreamPtr();
+      int bytesRead = 0;
+      const int chunkSize = 1024; // Ler em pedaços de 1024 bytes
+
+      while (bytesRead < contentLength) {
+        int availableBytes = stream->available();
+        if (availableBytes > 0) {
+          int bytesToRead = min(chunkSize, availableBytes);
+          stream->readBytes(mp3Buffer + bytesRead, bytesToRead);
+          bytesRead += bytesToRead;
+          Serial.printf("Lidos %d de %d bytes\n", bytesRead, contentLength);
+        }
+        delay(10); // Pequena pausa para evitar travamento
+      }
+
+      Serial.println("Áudio baixado com sucesso!");
+      http.end();
+      return true;
+    }
+  }
+
+  Serial.printf("Erro: %d\n", httpResponseCode);
+  http.end();
+  return false;
+}
+
+
+void enviarParaServidorNode() {
+  HTTPClient http;
+
+  // Substitua a URL do seu servidor local aqui
+  http.begin(nodeServerURL);
+  
+  // Define o cabeçalho Content-Type para multipart/form-data
+  String boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"; // Você pode escolher outro se quiser
+  //http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+  // Cria a requisição multipart
+  String body = "--" + boundary + "\r\n";
+  //body += "Content-Disposition: form-data; name=\"file\"; filename=\"audio.mp3\"\r\n";
+  //body += "Content-Type: audio/mpeg\r\n\r\n";
+
+  // Envia a parte inicial do corpo
+  //http.POST(body); // Enviando a primeira parte
+
+  // Envia os dados do buffer MP3 em partes
+  int offset = 0;
+  int chunkSize = 1024; // Tamanho do chunk que você vai enviar
+  while (offset < contentLength) {
+    int bytesToSend = min(chunkSize, contentLength - offset);
+    http.sendRequest("POST", (uint8_t*)(mp3Buffer + offset), bytesToSend);
+    offset += bytesToSend;
+  }
+
+  // Finaliza a requisição
+  String finalPart = "\r\n--" + boundary + "--\r\n";
+  http.sendRequest("POST", (uint8_t*)finalPart.c_str(), finalPart.length());
+
+  // Verifica a resposta
+  int httpResponseCode = http.GET(); // A resposta é lida após o envio
+  if (httpResponseCode > 0) {
+    Serial.printf("Código de resposta: %d\n", httpResponseCode);
+    String response = http.getString();
+    Serial.println("Resposta do servidor: " + response);
+  } else {
+    Serial.printf("Erro ao enviar: %s\n", http.errorToString(httpResponseCode).c_str());
+  }
+
+  http.end(); // Finaliza a conexão
+  free(mp3Buffer); // Libera a memória alocada
+}
+
+
+
+
+void loop() {
+  // Não precisa de nada aqui
 }
