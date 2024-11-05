@@ -5,33 +5,22 @@
 #include <string.h>
 #include <locale.h>
 
+#include "WiFiHelper.h"
+
 const String ssid = "";
 const String password = "";
 const String Gemini_Token = "";
 const String Gemini_Max_Tokens = "200";
 String question = "";
 
+WiFiHelper wifiHelper;
+
 void setup() {
-  Serial.begin(115200);
+    Serial.begin(115200);
+    while (!Serial);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-
-  while (!Serial);
-
-  setlocale(LC_ALL, "Portuguese");
-
-  // wait for WiFi connection
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(".");
-  }
-  Serial.println("connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+    setlocale(LC_ALL, "Portuguese");
+    wifiHelper.connect(ssid, password);
 }
 
 void loop() 
