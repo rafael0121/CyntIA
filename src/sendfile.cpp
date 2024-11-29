@@ -2,10 +2,9 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
 
+#include "config.h"
 #include "sendfile.h"
 
-// Endereço do servidor local
-#define SERVER_URL "http://192.168.242.103:3000/upload" // Substitua pelo IP do servidor
 
 void sendFile() {
   WiFiClient client;

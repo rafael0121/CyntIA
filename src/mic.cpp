@@ -2,14 +2,6 @@
 #include <Arduino.h>
 #include <SPIFFS.h>
 #include <config.h>
-
-// Connections to INMP441 I2S microphone
-#define I2S_WS 25
-#define I2S_SD 32
-#define I2S_SCK 33
- 
-// Use I2S Processor 0 - <#
-#define I2S_PORT I2S_NUM_0
  
 // Define input buffer length
 #define bufferLen 64
@@ -98,7 +90,7 @@ void recordAudio() {
 
   Serial.println("log: Iniciando gravação por 5 segundos...");
   unsigned long start = millis();
-  while (millis() - start < 5000) {
+  while (millis() - start < 10000) {
     i2s_read(I2S_NUM_0, i2sData, BUFFER_SIZE, &bytesRead, portMAX_DELAY);
     audioFile.write(i2sData, bytesRead);
     totalBytes += bytesRead;

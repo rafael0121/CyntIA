@@ -10,10 +10,6 @@
 #include "mic.h"
 #include "sendfile.h"
 
-// Credenciais do Wi-Fi
-#define WIFI_SSID "i9Netcel-Prema2G"
-#define WIFI_PASSWORD "14541454"
-
 void connectWiFi() {
   Serial.print("Conectando ao Wi-Fi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -35,6 +31,12 @@ void setup() {
 }
 
 void loop() {
+  Serial.println("Press any key to start record!");
+  while(Serial.available() == 0) {
+    if(Serial.readString() == "aa"){
+      break;
+    }
+  }
   char *path;
   Serial.println("log: Record");
   mic_get_voice_record();
