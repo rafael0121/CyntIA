@@ -1,27 +1,33 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <FS.h>
-#include <SPIFFS.h>
 #include <api.h>
+#include <Arduino.h>
+#include <Audio.h>
+#include <SD.h>
 
 // Configurações Wi-Fi
-const char* ssid = "WT-MIGUEL";
-const char* password = "GomesCampos9862709402";
+const char* ssid = "lanna-wifi";
+const char* password = "lanna-wifi";
 
 // URLs
 String apiElevenLabs = "https://api.elevenlabs.io/v1/text-to-speech/33B4UnXyTNbgLmdEDh5P";
 
-// Caminho do arquivo MP3 na SPIFFS
 const char* mp3_file_path = "/audio.mp3";
 
-// Inicializa a SPIFFS
-void initSPIFFS() {
-  if (!SPIFFS.begin(true)) {
-    Serial.println("Erro ao inicializar SPIFFS");
-    while (true);
-  }
-  Serial.println("SPIFFS inicializado com sucesso.");
-}
+// microSD Card Reader connections
+#define SD_CS          5
+#define SPI_MOSI      23 
+#define SPI_MISO      19
+#define SPI_SCK       18
+ 
+// I2S Connections
+#define I2S_DOUT      25
+#define I2S_BCLK      27
+#define I2S_LRC       26
+
+ // Create Audio object
+Audio audio;
 
 // Função para obter o MP3 da API e salvar na SPIFFS
 bool getMP3FromElevenLabs(String text) {
@@ -35,13 +41,13 @@ bool getMP3FromElevenLabs(String text) {
   http.addHeader("xi-api-key", ELEVEN_LABS_API_KEY);
 
   // Corpo da requisição JSON com o texto
-  String payload = "{\"text\":\"" + text + "\"}";
+  String payload = "{\"text\":\"" + text + "\", \"model_id\":\"eleven_turbo_v2_5\", \"language_code\":\"pt\"}";
 
   int httpResponseCode = http.POST(payload);
 
   if (httpResponseCode == 200) {
     // Abrir arquivo na SPIFFS para gravação
-    File mp3File = SPIFFS.open(mp3_file_path, FILE_WRITE);
+    File mp3File = SD.open(mp3_file_path, FILE_WRITE);
     if (!mp3File) {
       Serial.println("Erro ao abrir arquivo para gravação.");
       http.end();
@@ -71,7 +77,13 @@ bool getMP3FromElevenLabs(String text) {
 
 void setup() {
   Serial.begin(115200);
-  initSPIFFS();
+
+  // Set microSD Card CS as OUTPUT and set HIGH
+  pinMode(SD_CS, OUTPUT);      
+  digitalWrite(SD_CS, HIGH); 
+    
+  // Initialize SPI bus for microSD Card
+  SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -80,26 +92,31 @@ void setup() {
   }
   Serial.println("WiFi conectado!");
 
+  // Start microSD Card
+  if(!SD.begin(SD_CS))
+  {
+    Serial.println("Error accessing microSD card!");
+    while(true); 
+  }
 
   // Texto a ser convertido em áudio
-  String textoParaConverter = "Oi. Meu nome é CyntIA. É muito legal te conhecer! Vamo ser grandes amigos emoji sorrindo";
+  String textoParaConverter = "GRR! EU NÃO VOU ME CASAR COM VOCÊ, SEU PASPALHO! VOCÊ ME DÁ NOJO SEU ESQUISITO";
 
-  //getMP3FromElevenLabs(textoParaConverter)
+  /*while(!getMP3FromElevenLabs(textoParaConverter)) {
+    break;
+  }*/
 
-  File root = SPIFFS.open("/");
+  // Setup I2S 
+  audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+    
+  // Set Volume
+  audio.setVolume(100);
  
-  File file = root.openNextFile();
- 
-  while(file){
- 
-      Serial.print("FILE: ");
-      Serial.println(file.name());
- 
-      file = root.openNextFile();
-  }
+  // Open music file
+  audio.connecttoFS(SD,"/audio.mp3");
   
 }
 
 void loop() {
-  
+  audio.loop();    
 }
