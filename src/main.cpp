@@ -7,13 +7,13 @@
 #include <SD.h>
 
 // Configurações Wi-Fi
-const char* ssid = "lanna-wifi";
-const char* password = "lanna-wifi";
+const char* ssid = "Carcara";
+const char* password = "67506750";
 
 // URLs
 String apiElevenLabs = "https://api.elevenlabs.io/v1/text-to-speech/33B4UnXyTNbgLmdEDh5P";
 
-const char* mp3_file_path = "/audio.mp3";
+const char* mp3_file_path = "/audio1.mp3";
 
 // microSD Card Reader connections
 #define SD_CS          5
@@ -43,6 +43,8 @@ bool getMP3FromElevenLabs(String text) {
   // Corpo da requisição JSON com o texto
   String payload = "{\"text\":\"" + text + "\", \"model_id\":\"eleven_turbo_v2_5\", \"language_code\":\"pt\"}";
 
+  http.setTimeout(5000);
+
   int httpResponseCode = http.POST(payload);
 
   if (httpResponseCode == 200) {
@@ -62,6 +64,7 @@ bool getMP3FromElevenLabs(String text) {
     while (stream->available()) {
       int bytesRead = stream->readBytes(buffer, sizeof(buffer));
       written += mp3File.write(buffer, bytesRead);
+      delay(50);
     }
 
     mp3File.close();
@@ -100,11 +103,11 @@ void setup() {
   }
 
   // Texto a ser convertido em áudio
-  String textoParaConverter = "GRR! EU NÃO VOU ME CASAR COM VOCÊ, SEU PASPALHO! VOCÊ ME DÁ NOJO SEU ESQUISITO";
+  String textoParaConverter = "A baleia-azul é o maior animal do mundo, podendo atingir mais de 30 metros de comprimento.";
 
-  /*while(!getMP3FromElevenLabs(textoParaConverter)) {
+  while(!getMP3FromElevenLabs(textoParaConverter)) {
     break;
-  }*/
+  }
 
   // Setup I2S 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
@@ -113,7 +116,7 @@ void setup() {
   audio.setVolume(100);
  
   // Open music file
-  audio.connecttoFS(SD,"/audio.mp3");
+  audio.connecttoFS(SD,"/audio1.mp3");
   
 }
 
