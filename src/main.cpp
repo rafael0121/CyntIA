@@ -4,11 +4,17 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ESP32Ping.h>
+#include <FS.h>
+#include <SD.h>
+#include <Audio.h>
 
 // Local library
 #include "config.h"
 #include "mic.h"
 #include "sendfile.h"
+
+ // Create Audio object
+Audio audio;
 
 void connectWiFi() {
   Serial.print("Conectando ao Wi-Fi");
@@ -28,6 +34,24 @@ void setup() {
   // Set up I2S microphone
   mic_configure();
   connectWiFi();
+
+
+  // Start microSD Card
+  if(!SD.begin(SD_CS))
+  {
+    Serial.println("Error accessing microSD card!");
+    while(true); 
+  }
+
+  // Setup I2S 
+  audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+    
+  // Set Volume
+  audio.setVolume(100);
+ 
+  // Open music file
+  audio.connecttoFS(SD,"/audio.mp3");
+
 }
 
 void loop() {
@@ -42,4 +66,12 @@ void loop() {
   mic_get_voice_record();
   Serial.println("log: sendFile");
   sendFile();
+
+  bool finish = false;
+
+  while(!finish) {
+    finish = getfile();
+  }
+
+  audio.loop();    
 }
