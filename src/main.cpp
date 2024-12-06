@@ -58,22 +58,26 @@ void loop() {
   Serial.println("log: Record");
   mic_get_voice_record();
   Serial.println("log: sendFile");
-  sendFile();
-  /////////
-  delay(5000);
-  Serial.println("log: getFile");
-  getfile();
 
-  int aux = 0;
-  Serial.println("Falando...");
-  while(aux < 3) {
-    if(test) {
-      audio.connecttoFS(SD,"/audio.mp3");
-      test = false;
+  int count = 0;
+  while(count < 3) {
+    if (!sendFile()){
+      count++;
+      Serial.println("log: algo falhou...tentando novamente");
+    } else {
+      int aux = 0;
+      Serial.println("Falando...");
+      while(aux < 3) {
+        if(test) {
+          audio.connecttoFS(SD,"/audio.mp3");
+          test = false;
+        }
+        audio.loop();    
+        aux++;
+      }
+      Serial.println("Terminou de falar");
+      break;
     }
-    audio.loop();    
-
-    aux++;
+    Serial.println("log: algo falhou...tentando novamente");
   }
-  Serial.println("Terminou de falar");
 }

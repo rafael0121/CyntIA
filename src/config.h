@@ -1,6 +1,6 @@
 // Credenciais do Wi-Fi
-#define WIFI_SSID "lanna-wifi"
-#define WIFI_PASSWORD "lanna-wifi"
+#define WIFI_SSID "rafael"
+#define WIFI_PASSWORD "rafaelrx"
 
 // microSD Card Reader connections
 #define SD_CS          5
@@ -20,5 +20,4 @@
 #define I2S_PORT I2S_NUM_1
 
 // Endereço do servidor local
-#define SERVER_URL_UPLOAD "http://192.168.92.106:3000/upload" // Substitua pelo IP do servidor
-#define SERVER_URL_DOWNLOAD "http://192.168.92.106:3000/download" // Substitua pelo IP do servidor
+#define SERVER_URL_UPLOAD "http://192.168.73.103:3000/upload" // Substitua pelo IP do servidor

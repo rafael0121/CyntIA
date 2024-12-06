@@ -1,4 +1,5 @@
 #include <HTTPClient.h>
+#include "esp_http_client.h"
 #include <Arduino.h>
 #include <SPIFFS.h>
 #include <SD.h>
@@ -6,72 +7,63 @@
 #include "config.h"
 #include "sendfile.h"
 
-
-void sendFile() {
+bool sendFile(){
   WiFiClient client;
   HTTPClient http;
 
-  http.begin(SERVER_URL_UPLOAD); // Endpoint POST
+  // Iniciar a requisição HTTP para o servidor de upload
+  http.begin(SERVER_URL_UPLOAD); // Endpoint PUT
   http.addHeader("Content-Type", "application/octet-stream");
 
-  // Abre o arquivo para leitura
+  // Abrir o arquivo de áudio para leitura
   File audioFile = SPIFFS.open("/audio.wav", "r");
   if (!audioFile) {
     Serial.println("Erro ao abrir o arquivo.");
-    return;
+    return false;
   }
-  
+
+  http.setTimeout(20000);
+  client.setTimeout(50000);
+
+  // Enviar o arquivo usando o método PUT
   int httpResponseCode = http.sendRequest("PUT", &audioFile, audioFile.size());
 
-  http.setTimeout(100);
-  
-// Finalizar a requisição
+  // Verificar o código de resposta da requisição
   if (httpResponseCode > 0) {
-    Serial.printf("HTTP Response code: %d\n", httpResponseCode);
-  } else {
-    Serial.printf("Erro ao enviar o arquivo: %s\n", http.errorToString(httpResponseCode).c_str());
-  }
-  
-  http.end();
-  audioFile.close();
-}
+    Serial.printf("Código de resposta HTTP: %d\n", httpResponseCode);
 
-
-bool getfile() {
-
-  HTTPClient http;
-  http.begin(SERVER_URL_DOWNLOAD);    // Inicia a conexão HTTP
-  int httpCode = http.GET(); // Envia a requisição GET
-  if (httpCode == 200) {  // Se a resposta for 200 (OK)
-
-    // Abre o arquivo no cartão SD para gravação
-    SD.remove("/audio.mp3");
-    delay(20);
-    File file = SD.open("/audio.mp3", FILE_WRITE);
-    if (!file) {
+    File mp3file = SD.open("/audio.mp3", FILE_WRITE);
+    if (!mp3file) {
       Serial.println("Falha ao abrir o arquivo para escrita.");
-      return false;
+    } else {
+      // Ler os dados da resposta e escrever no arquivo
+      uint8_t buffer[1024];
+      int bytesRead;
+
+      int count = 0;
+      while ((bytesRead = http.getStream().read(buffer, sizeof(buffer))) > 0) {
+        mp3file.write(buffer, bytesRead);  // Escrever os bytes lidos no arquivo
+        count++;
+        Serial.printf("Recebendo chunk de tamanho: %i\n", bytesRead);
+        delay(50);
+      }
+
+      Serial.printf("log: Recebido %i chunks\n", count);
+    
+      // Fechar o arquivo após salvar
+      mp3file.close();
+      Serial.println("Áudio salvo com sucesso como /audio.mp3.");
     }
 
-    Serial.println("Arquivo encontrado. Iniciando download...");
-    // Obtém o stream de dados e escreve no cartão SD
-    WiFiClient * stream = http.getStreamPtr();
-    while (stream->available()) {
-      file.write(stream->read());
-      delay(10);
-    }
-
-    file.close(); // Fecha o arquivo no SD
-    Serial.println("Arquivo MP3 salvo no cartão SD!");
-
-    http.end();  // Finaliza a requisição HTTP
+    // Finalizar a requisição
+    http.end();
+    audioFile.close();
 
     return true;
   } else {
-    Serial.printf("Falha ao baixar o arquivo, código de erro: %d\n", httpCode);
+    Serial.printf("Código de resposta HTTP: %d\n", httpResponseCode);
+    return false;
   }
-
-  http.end();  // Finaliza a requisição HTTP
 
   return false;
 }

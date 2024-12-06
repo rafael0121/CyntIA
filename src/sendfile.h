@@ -1,2 +1,1 @@
-extern void sendFile();
-extern bool getfile();
+extern bool sendFile();
