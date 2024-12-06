@@ -11,7 +11,7 @@ void sendFile() {
   WiFiClient client;
   HTTPClient http;
 
-  http.begin(SERVER_URL_DOWNLOAD); // Endpoint POST
+  http.begin(SERVER_URL_UPLOAD); // Endpoint POST
   http.addHeader("Content-Type", "application/octet-stream");
 
   // Abre o arquivo para leitura
@@ -40,11 +40,12 @@ bool getfile() {
   HTTPClient http;
   http.begin(SERVER_URL_DOWNLOAD);    // Inicia a conexão HTTP
   int httpCode = http.GET(); // Envia a requisição GET
-
   if (httpCode == 200) {  // Se a resposta for 200 (OK)
     Serial.println("Arquivo encontrado. Iniciando download...");
 
     // Abre o arquivo no cartão SD para gravação
+    SD.remove("/audio.mp3");
+    delay(20);
     File file = SD.open("/audio.mp3", FILE_WRITE);
     if (!file) {
       Serial.println("Falha ao abrir o arquivo para escrita.");
@@ -55,6 +56,7 @@ bool getfile() {
     WiFiClient * stream = http.getStreamPtr();
     while (stream->available()) {
       file.write(stream->read());
+      delay(10);
     }
 
     file.close(); // Fecha o arquivo no SD

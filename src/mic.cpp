@@ -36,8 +36,8 @@ void setupI2S() {
     .data_in_num = I2S_SD
   };
 
-  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_NUM_0, &pin_config);
+  i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_PORT, &pin_config);
 }
 
 void createWavHeader(File &file, int dataSize) {
@@ -90,12 +90,12 @@ void recordAudio() {
 
   Serial.println("log: Iniciando gravação por 5 segundos...");
   unsigned long start = millis();
-  while (millis() - start < 10000) {
-    i2s_read(I2S_NUM_0, i2sData, BUFFER_SIZE, &bytesRead, portMAX_DELAY);
+  while (millis() - start < 5000) {
+    i2s_read(I2S_PORT, i2sData, BUFFER_SIZE, &bytesRead, portMAX_DELAY);
     audioFile.write(i2sData, bytesRead);
     totalBytes += bytesRead;
   }
-
+  
   audioFile.seek(4);
   audioFile.write((uint8_t *)&totalBytes, 4); // Atualiza tamanho no cabeçalho
   audioFile.seek(40);
