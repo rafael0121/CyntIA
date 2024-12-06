@@ -36,23 +36,13 @@ bool sendFile(){
     if (!mp3file) {
       Serial.println("Falha ao abrir o arquivo para escrita.");
     } else {
-      // Ler os dados da resposta e escrever no arquivo
-      uint8_t buffer[1024];
-      int bytesRead;
-
-      int count = 0;
-      while ((bytesRead = http.getStream().read(buffer, sizeof(buffer))) > 0) {
-        mp3file.write(buffer, bytesRead);  // Escrever os bytes lidos no arquivo
-        count++;
-        Serial.printf("Recebendo chunk de tamanho: %i\n", bytesRead);
-        delay(50);
+      WiFiClient * stream = http.getStreamPtr();
+      while (stream->available()) {
+        mp3file.write(stream->read());
+        delay(10);
       }
-
-      Serial.printf("log: Recebido %i chunks\n", count);
-    
-      // Fechar o arquivo após salvar
-      mp3file.close();
-      Serial.println("Áudio salvo com sucesso como /audio.mp3.");
+      mp3file.close(); // Fecha o arquivo no SD
+      Serial.println("Arquivo MP3 salvo no cartão SD!");
     }
 
     // Finalizar a requisição

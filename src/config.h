@@ -20,4 +20,4 @@
 #define I2S_PORT I2S_NUM_1
 
 // Endereço do servidor local
-#define SERVER_URL_UPLOAD "http://192.168.73.103:3000/upload" // Substitua pelo IP do servidor
+#define SERVER_URL_UPLOAD "http:// 192.168.146.103:3000/upload" // Substitua pelo IP do servidor
