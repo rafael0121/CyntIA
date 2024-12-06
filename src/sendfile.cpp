@@ -22,6 +22,8 @@ void sendFile() {
   }
   
   int httpResponseCode = http.sendRequest("PUT", &audioFile, audioFile.size());
+
+  http.setTimeout(100);
   
 // Finalizar a requisição
   if (httpResponseCode > 0) {
@@ -41,7 +43,6 @@ bool getfile() {
   http.begin(SERVER_URL_DOWNLOAD);    // Inicia a conexão HTTP
   int httpCode = http.GET(); // Envia a requisição GET
   if (httpCode == 200) {  // Se a resposta for 200 (OK)
-    Serial.println("Arquivo encontrado. Iniciando download...");
 
     // Abre o arquivo no cartão SD para gravação
     SD.remove("/audio.mp3");
@@ -52,6 +53,7 @@ bool getfile() {
       return false;
     }
 
+    Serial.println("Arquivo encontrado. Iniciando download...");
     // Obtém o stream de dados e escreve no cartão SD
     WiFiClient * stream = http.getStreamPtr();
     while (stream->available()) {

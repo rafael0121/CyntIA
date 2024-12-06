@@ -10,5 +10,6 @@
         "streambuf": "cpp",
         "fs.h": "c",
         "spiffs.h": "c"
-    }
+    },
+    "cmake.sourceDirectory": "/home/rafael/MEGA/Projects/faculdade/CyntIA/lib/ESP32-audioI2S"
 }

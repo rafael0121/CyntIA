@@ -60,14 +60,20 @@ void loop() {
   Serial.println("log: sendFile");
   sendFile();
   /////////
+  delay(5000);
   Serial.println("log: getFile");
   getfile();
-  if(test) {
-    delay(50);
-    audio.connecttoFS(SD,"/audio.mp3");
-    delay(50);
-    test = false;
-    Serial.println("entrei");
+
+  int aux = 0;
+  Serial.println("Falando...");
+  while(aux < 3) {
+    if(test) {
+      audio.connecttoFS(SD,"/audio.mp3");
+      test = false;
+    }
+    audio.loop();    
+
+    aux++;
   }
-  audio.loop();    
+  Serial.println("Terminou de falar");
 }
