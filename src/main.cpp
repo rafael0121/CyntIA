@@ -44,6 +44,7 @@ void setup() {
     
   // Set Volume
   audio.setVolume(100);
+
 }
 
 void loop() {
@@ -66,7 +67,7 @@ void loop() {
     } else {
       int aux = 0;
       Serial.println("Falando...");
-      while(aux < 10) {
+      while(aux < 5) {
         if(test) {
           audio.connecttoFS(SD,"/audio.mp3");
           test = false;
